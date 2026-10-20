@@ -42,6 +42,8 @@
   input[type=range] { accent-color: var(--accent); }
   #seek { flex: 1; min-width: 60px; }
   #volume { width: 90px; }
+  .icon-btn.cc { font-size: 12px; font-weight: 700; color: var(--muted); }
+  .icon-btn.cc.on { color: #fff; box-shadow: inset 0 -3px 0 var(--accent); }
   .icon-btn { width: 40px; height: 40px; padding: 0; display: grid; place-items: center; font-size: 16px; flex-shrink: 0; }
 
   .now { margin-top: 14px; }
@@ -125,6 +127,7 @@
       <span class="time" id="durTime">0:00</span>
       <span title="Volumen (solo para ti)">🔊</span>
       <input type="range" id="volume" min="0" max="100" value="80">
+      <button class="icon-btn cc" id="ccBtn" title="Subtítulos (solo para ti)">CC</button>
       <button class="icon-btn" id="fsBtn" title="Pantalla completa">⛶</button>
     </div>
 
@@ -177,6 +180,8 @@ let loadedItemId = null;
 let joined = false;
 let draggingSeek = false;
 let endedSentFor = null;
+let subsOn = false;
+try { subsOn = localStorage.getItem('yt-subs') === '1'; } catch {}
 
 // ---------- Utilidades ----------
 function fmt(sec) {
@@ -213,7 +218,7 @@ document.head.append(tag);
 
 window.onYouTubeIframeAPIReady = () => {
   player = new YT.Player('player', {
-    playerVars: { controls: 0, disablekb: 1, modestbranding: 1, rel: 0, playsinline: 1, iv_load_policy: 3 },
+    playerVars: { controls: 0, disablekb: 1, modestbranding: 1, rel: 0, playsinline: 1, iv_load_policy: 3, cc_load_policy: 0 },
     events: {
       onReady: () => {
         playerReady = true;
@@ -222,8 +227,11 @@ window.onYouTubeIframeAPIReady = () => {
       },
       onStateChange: (e) => {
         if (e.data === YT.PlayerState.ENDED) sendEnded();
+        if (e.data === YT.PlayerState.PLAYING) applySubs();
         updatePlayBtn();
       },
+      // YouTube carga los subtítulos por su cuenta; aquí los quitamos o ponemos según la preferencia
+      onApiChange: applySubs,
       onError: () => {
         if (S && S.current && loadedItemId === S.current.id) socket.emit('videoError', S.current.id);
       },
@@ -385,6 +393,29 @@ $('seek').oninput = () => { draggingSeek = true; $('curTime').textContent = fmt(
 $('seek').onchange = () => { draggingSeek = false; socket.emit('seek', +$('seek').value); };
 
 $('volume').oninput = () => playerReady && player.setVolume(+$('volume').value);
+
+function applySubs() {
+  $('ccBtn').classList.toggle('on', subsOn);
+  if (!playerReady) return;
+  try {
+    if (!subsOn) return player.unloadModule('captions');
+    player.loadModule('captions');
+    const tracks = player.getOption('captions', 'tracklist') || [];
+    if (!tracks.length) return;
+    const lang = (navigator.language || 'es').slice(0, 2);
+    const track = tracks.find((t) => t.languageCode.startsWith(lang)) || tracks[0];
+    const active = player.getOption('captions', 'track');
+    if (!active || !active.languageCode) player.setOption('captions', 'track', { languageCode: track.languageCode });
+  } catch {}
+}
+applySubs();
+
+$('ccBtn').onclick = () => {
+  subsOn = !subsOn;
+  try { localStorage.setItem('yt-subs', subsOn ? '1' : '0'); } catch {}
+  applySubs();
+  toast(subsOn ? 'Subtítulos activados' : 'Subtítulos desactivados');
+};
 
 $('fsBtn').onclick = () => {
   if (document.fullscreenElement) document.exitFullscreen();
