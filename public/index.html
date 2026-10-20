@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>YouTube Compartido</title>
+<style>
+  :root {
+    --bg: #0f0f0f; --panel: #1a1a1a; --panel2: #232323; --border: #2e2e2e;
+    --text: #f1f1f1; --muted: #9a9a9a; --accent: #ff3b3b; --accent2: #ff6b6b;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { background: var(--bg); color: var(--text); font: 15px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  button, input { font: inherit; color: inherit; }
+  button { cursor: pointer; border: 0; border-radius: 8px; background: var(--panel2); padding: 8px 12px; }
+  button:hover { background: #333; }
+  button.primary { background: var(--accent); color: #fff; font-weight: 600; }
+  button.primary:hover { background: var(--accent2); }
+  input[type=text] { background: var(--panel2); border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px; outline: none; min-width: 0; }
+  input[type=text]:focus { border-color: var(--accent); }
+
+  header { display: flex; align-items: center; gap: 12px; padding: 12px 20px; border-bottom: 1px solid var(--border); }
+  .logo { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 18px; }
+  .logo span.dot { width: 28px; height: 20px; background: var(--accent); border-radius: 6px; display: grid; place-items: center; font-size: 10px; }
+  .pill { margin-left: auto; background: var(--panel2); border-radius: 999px; padding: 5px 12px; font-size: 13px; color: var(--muted); }
+  .pill b { color: var(--text); }
+
+  main { display: grid; grid-template-columns: 1fr 380px; gap: 20px; padding: 20px; max-width: 1600px; margin: 0 auto; }
+  @media (max-width: 960px) { main { grid-template-columns: 1fr; padding: 12px; } }
+
+  .player-wrap { position: relative; aspect-ratio: 16/9; background: #000; border-radius: 12px; overflow: hidden; }
+  .player-wrap:fullscreen { border-radius: 0; }
+  #player { position: absolute; inset: 0; width: 100%; height: 100%; }
+  /* Capa que bloquea los clics en el video para que todo pase por nuestros controles */
+  .shield { position: absolute; inset: 0; z-index: 2; }
+  .empty { position: absolute; inset: 0; z-index: 3; display: grid; place-items: center; text-align: center; color: var(--muted); background: radial-gradient(circle at center, #1d1d1d, #000); padding: 20px; }
+  .empty h2 { color: var(--text); margin: 0 0 6px; }
+
+  .controls { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+  .controls .time { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 13px; white-space: nowrap; }
+  input[type=range] { accent-color: var(--accent); }
+  #seek { flex: 1; min-width: 60px; }
+  #volume { width: 90px; }
+  .icon-btn { width: 40px; height: 40px; padding: 0; display: grid; place-items: center; font-size: 16px; flex-shrink: 0; }
+
+  .now { margin-top: 14px; }
+  .now h1 { font-size: 20px; margin: 0 0 4px; }
+  .now .meta { color: var(--muted); font-size: 14px; }
+
+  .add { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+  .add input { flex: 1; min-width: 200px; }
+
+  aside { display: flex; flex-direction: column; gap: 16px; min-height: 0; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; }
+  .card h3 { margin: 0; padding: 12px 14px; font-size: 14px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; }
+  .card h3 small { color: var(--muted); font-weight: 400; }
+
+  #queue { max-height: 340px; overflow-y: auto; }
+  .qitem { display: flex; gap: 10px; padding: 8px 10px; align-items: center; border-bottom: 1px solid var(--border); }
+  .qitem:last-child { border-bottom: 0; }
+  .qitem img { width: 96px; height: 54px; object-fit: cover; border-radius: 6px; flex-shrink: 0; background: #000; }
+  .qitem .info { flex: 1; min-width: 0; }
+  .qitem .t { font-size: 13px; font-weight: 600; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .qitem .by { font-size: 12px; color: var(--muted); }
+  .qitem .acts { display: flex; flex-direction: column; gap: 2px; }
+  .qitem .acts button { padding: 2px 7px; font-size: 12px; background: transparent; }
+  .qitem .acts button:hover { background: var(--panel2); }
+  .muted { color: var(--muted); padding: 14px; font-size: 13px; }
+
+  .chat { flex: 1; min-height: 320px; }
+  #messages { flex: 1; overflow-y: auto; padding: 10px 14px; max-height: 420px; min-height: 200px; }
+  .msg { margin: 4px 0; word-wrap: break-word; }
+  .msg b { color: var(--accent2); }
+  .msg.sys { color: var(--muted); font-size: 12px; font-style: italic; }
+  .chat form { display: flex; gap: 8px; padding: 10px; border-top: 1px solid var(--border); }
+  .chat form input { flex: 1; }
+
+  #users { padding: 10px 14px; display: flex; flex-wrap: wrap; gap: 6px; }
+  #users span { background: var(--panel2); border-radius: 999px; padding: 3px 10px; font-size: 13px; }
+
+  .modal { position: fixed; inset: 0; background: rgba(0,0,0,.8); display: grid; place-items: center; z-index: 50; padding: 16px; }
+  .modal form { background: var(--panel); border: 1px solid var(--border); border-radius: 16px; padding: 28px; width: 100%; max-width: 380px; display: flex; flex-direction: column; gap: 12px; }
+  .modal h2 { margin: 0; }
+  .modal p { margin: 0; color: var(--muted); font-size: 14px; }
+
+  #toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(100px); background: #333; padding: 10px 18px; border-radius: 10px; transition: transform .25s; z-index: 60; }
+  #toast.show { transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<div class="modal" id="joinModal">
+  <form id="joinForm">
+    <h2>📺 YouTube Compartido</h2>
+    <p>Mira videos a la vez con tus amigos. Cualquiera puede poner videos, pausar o saltar.</p>
+    <input type="text" id="nameInput" placeholder="Tu nombre" maxlength="24" autofocus>
+    <button class="primary" type="submit">Entrar</button>
+  </form>
+</div>
+
+<header>
+  <div class="logo"><span class="dot">▶</span> YouTube Compartido</div>
+  <div class="pill">👥 <b id="userCount">0</b> conectados</div>
+</header>
+
+<main>
+  <section>
+    <div class="player-wrap" id="playerWrap">
+      <div id="player"></div>
+      <div class="shield" id="shield"></div>
+      <div class="empty" id="empty">
+        <div>
+          <h2>No hay nada sonando</h2>
+          <div>Pega un enlace de YouTube abajo para empezar 👇</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="icon-btn" id="playBtn" title="Reproducir / pausar">▶</button>
+      <button class="icon-btn" id="skipBtn" title="Siguiente video">⏭</button>
+      <span class="time" id="curTime">0:00</span>
+      <input type="range" id="seek" min="0" max="100" step="0.1" value="0">
+      <span class="time" id="durTime">0:00</span>
+      <span title="Volumen (solo para ti)">🔊</span>
+      <input type="range" id="volume" min="0" max="100" value="80">
+      <button class="icon-btn" id="fsBtn" title="Pantalla completa">⛶</button>
+    </div>
+
+    <div class="now">
+      <h1 id="nowTitle">—</h1>
+      <div class="meta" id="nowMeta"></div>
+    </div>
+
+    <form class="add" id="addForm">
+      <input type="text" id="urlInput" placeholder="Pega un enlace de YouTube (youtube.com/watch?v=… o youtu.be/…)">
+      <button type="submit">➕ A la cola</button>
+      <button type="button" class="primary" id="playNowBtn">▶ Poner ya</button>
+    </form>
+  </section>
+
+  <aside>
+    <div class="card">
+      <h3>Siguiente en la cola <small id="queueCount">0</small></h3>
+      <div id="queue"></div>
+    </div>
+
+    <div class="card chat">
+      <h3>Chat</h3>
+      <div id="messages"></div>
+      <form id="chatForm">
+        <input type="text" id="chatInput" placeholder="Escribe algo…" maxlength="300" autocomplete="off">
+        <button type="submit">Enviar</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h3>Conectados</h3>
+      <div id="users"></div>
+    </div>
+  </aside>
+</main>
+
+<div id="toast"></div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const socket = io();
+
+let S = null;          // último estado del servidor
+let receivedAt = 0;    // cuándo llegó (para calcular la posición actual)
+let player = null;
+let playerReady = false;
+let loadedItemId = null;
+let joined = false;
+let draggingSeek = false;
+let endedSentFor = null;
+
+// ---------- Utilidades ----------
+function fmt(sec) {
+  sec = Math.max(0, Math.floor(sec || 0));
+  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+  return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(s).padStart(2, '0');
+}
+
+function el(tag, props = {}, ...children) {
+  const e = document.createElement(tag);
+  Object.assign(e, props);
+  for (const c of children) e.append(c);
+  return e;
+}
+
+let toastTimer;
+function toast(text) {
+  const t = $('toast');
+  t.textContent = text;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function expectedPos() {
+  if (!S || !S.current) return 0;
+  return S.playing ? S.position + (Date.now() - receivedAt) / 1000 : S.position;
+}
+
+// ---------- Reproductor de YouTube ----------
+const tag = document.createElement('script');
+tag.src = 'https://www.youtube.com/iframe_api';
+document.head.append(tag);
+
+window.onYouTubeIframeAPIReady = () => {
+  player = new YT.Player('player', {
+    playerVars: { controls: 0, disablekb: 1, modestbranding: 1, rel: 0, playsinline: 1, iv_load_policy: 3 },
+    events: {
+      onReady: () => {
+        playerReady = true;
+        player.setVolume(+$('volume').value);
+        applyState();
+      },
+      onStateChange: (e) => {
+        if (e.data === YT.PlayerState.ENDED) sendEnded();
+        updatePlayBtn();
+      },
+      onError: () => {
+        if (S && S.current && loadedItemId === S.current.id) socket.emit('videoError', S.current.id);
+      },
+    },
+  });
+};
+
+function sendEnded() {
+  if (S && S.current && endedSentFor !== S.current.id) {
+    endedSentFor = S.current.id;
+    socket.emit('ended', S.current.id);
+  }
+}
+
+// Ajusta el reproductor local para que coincida con el estado del servidor
+function applyState() {
+  if (!playerReady || !S || !joined) return;
+
+  if (!S.current) {
+    if (loadedItemId !== null) { player.stopVideo(); loadedItemId = null; }
+    return;
+  }
+
+  if (S.current.id !== loadedItemId) {
+    loadedItemId = S.current.id;
+    player.loadVideoById({ videoId: S.current.videoId, startSeconds: expectedPos() });
+    if (!S.playing) setTimeout(() => S && !S.playing && player.pauseVideo(), 600);
+    return;
+  }
+
+  syncTick();
+}
+
+function syncTick() {
+  if (!playerReady || !S || !S.current || !joined || loadedItemId !== S.current.id) return;
+  const st = player.getPlayerState();
+  const P = YT.PlayerState;
+  if (st === P.ENDED) return;
+
+  if (S.playing && (st === P.PAUSED || st === P.CUED || st === -1)) player.playVideo();
+  if (!S.playing && (st === P.PLAYING || st === P.BUFFERING)) player.pauseVideo();
+
+  const dur = player.getDuration();
+  const want = expectedPos();
+  if (dur > 0 && want > dur + 1) return sendEnded();
+
+  const have = player.getCurrentTime();
+  const tolerance = S.playing ? 2 : 0.5;
+  if (Math.abs(have - want) > tolerance) player.seekTo(want, true);
+}
+
+setInterval(syncTick, 1000);
+
+// Actualiza la barra de progreso y el tiempo
+setInterval(() => {
+  if (!S || !S.current) return;
+  const dur = playerReady ? player.getDuration() : 0;
+  const pos = Math.min(expectedPos(), dur || Infinity);
+  $('durTime').textContent = fmt(dur);
+  if (!draggingSeek) {
+    $('seek').max = dur || 100;
+    $('seek').value = pos;
+    $('curTime').textContent = fmt(pos);
+  }
+}, 250);
+
+function updatePlayBtn() {
+  $('playBtn').textContent = S && S.playing ? '⏸' : '▶';
+}
+
+// ---------- Interfaz ----------
+function render() {
+  const cur = S.current;
+  $('empty').style.display = cur ? 'none' : '';
+  $('nowTitle').textContent = cur ? cur.title : '—';
+  $('nowMeta').textContent = cur ? [cur.author, 'puesto por ' + cur.addedBy].filter(Boolean).join(' · ') : '';
+  if (!cur) { $('seek').value = 0; $('curTime').textContent = '0:00'; $('durTime').textContent = '0:00'; }
+  updatePlayBtn();
+
+  $('queueCount').textContent = S.queue.length;
+  const q = $('queue');
+  q.replaceChildren();
+  if (!S.queue.length) q.append(el('div', { className: 'muted', textContent: 'La cola está vacía. ¡Añade algo!' }));
+  S.queue.forEach((item, i) => {
+    const play = el('button', { textContent: '▶', title: 'Poner ahora', onclick: () => socket.emit('playFromQueue', item.id) });
+    const up = el('button', { textContent: '↑', title: 'Subir', disabled: i === 0, onclick: () => socket.emit('move', { itemId: item.id, dir: -1 }) });
+    const down = el('button', { textContent: '↓', title: 'Bajar', disabled: i === S.queue.length - 1, onclick: () => socket.emit('move', { itemId: item.id, dir: 1 }) });
+    const del = el('button', { textContent: '✕', title: 'Quitar', onclick: () => socket.emit('remove', item.id) });
+    q.append(el('div', { className: 'qitem' },
+      el('img', { src: `https://i.ytimg.com/vi/${item.videoId}/mqdefault.jpg`, alt: '' }),
+      el('div', { className: 'info' },
+        el('div', { className: 't', textContent: item.title }),
+        el('div', { className: 'by', textContent: 'por ' + item.addedBy })),
+      el('div', { className: 'acts' }, play, del),
+      el('div', { className: 'acts' }, up, down)));
+  });
+}
+
+function addMessage(m) {
+  const box = $('messages');
+  const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 40;
+  const div = m.system
+    ? el('div', { className: 'msg sys', textContent: m.text })
+    : el('div', { className: 'msg' }, el('b', { textContent: m.name + ': ' }), m.text);
+  box.append(div);
+  if (atBottom) box.scrollTop = box.scrollHeight;
+}
+
+// ---------- Eventos del servidor ----------
+socket.on('state', (s) => {
+  S = s;
+  receivedAt = Date.now();
+  if (!S.current || S.current.id !== endedSentFor) endedSentFor = null;
+  render();
+  applyState();
+});
+
+socket.on('chatHistory', (msgs) => { $('messages').replaceChildren(); msgs.forEach(addMessage); });
+socket.on('chat', addMessage);
+socket.on('toast', toast);
+socket.on('users', (list) => {
+  $('userCount').textContent = list.length;
+  $('users').replaceChildren(...list.map((n) => el('span', { textContent: n })));
+});
+
+// Si se reconecta (p. ej. se reinició el servidor), vuelve a entrar con el mismo nombre
+socket.on('connect', () => { if (joined) socket.emit('join', localStorage.getItem('yt-name')); });
+
+// ---------- Acciones del usuario ----------
+try { $('nameInput').value = localStorage.getItem('yt-name') || ''; } catch {}
+
+$('joinForm').onsubmit = (e) => {
+  e.preventDefault();
+  const name = $('nameInput').value.trim();
+  try { localStorage.setItem('yt-name', name); } catch {}
+  socket.emit('join', name);
+  joined = true;
+  $('joinModal').remove();
+  applyState();
+};
+
+function addVideo(now) {
+  const url = $('urlInput').value.trim();
+  if (!url) return toast('Pega primero un enlace de YouTube');
+  socket.emit('add', { url, now });
+  $('urlInput').value = '';
+}
+$('addForm').onsubmit = (e) => { e.preventDefault(); addVideo(false); };
+$('playNowBtn').onclick = () => addVideo(true);
+
+$('playBtn').onclick = () => {
+  if (!S || !S.current) return;
+  socket.emit(S.playing ? 'pause' : 'play');
+};
+$('shield').onclick = () => $('playBtn').click();
+$('skipBtn').onclick = () => socket.emit('skip');
+
+$('seek').oninput = () => { draggingSeek = true; $('curTime').textContent = fmt(+$('seek').value); };
+$('seek').onchange = () => { draggingSeek = false; socket.emit('seek', +$('seek').value); };
+
+$('volume').oninput = () => playerReady && player.setVolume(+$('volume').value);
+
+$('fsBtn').onclick = () => {
+  if (document.fullscreenElement) document.exitFullscreen();
+  else $('playerWrap').requestFullscreen?.();
+};
+
+$('chatForm').onsubmit = (e) => {
+  e.preventDefault();
+  const text = $('chatInput').value.trim();
+  if (text) socket.emit('chat', text);
+  $('chatInput').value = '';
+};
+</script>
+</body>
+</html>
