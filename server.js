@@ -110,6 +110,67 @@ async function fetchInfo(videoId) {
   }
 }
 
+// ---------- Buscador ----------
+// Lee la página de resultados de YouTube (no necesita clave de API)
+const searchCache = new Map();
+
+function findVideos(node, out) {
+  if (!node || typeof node !== 'object' || out.length >= 20) return out;
+  if (Array.isArray(node)) {
+    for (const n of node) findVideos(n, out);
+    return out;
+  }
+  const v = node.videoRenderer;
+  if (v && v.videoId) {
+    out.push({
+      videoId: v.videoId,
+      title: v.title?.runs?.map((r) => r.text).join('') || '',
+      author: v.ownerText?.runs?.[0]?.text || '',
+      duration: v.lengthText?.simpleText || 'EN VIVO',
+      views: v.shortViewCountText?.simpleText || '',
+    });
+    return out;
+  }
+  for (const key in node) findVideos(node[key], out);
+  return out;
+}
+
+async function searchYouTube(q) {
+  const key = q.toLowerCase();
+  const cached = searchCache.get(key);
+  if (cached && Date.now() - cached.time < 10 * 60 * 1000) return cached.results;
+
+  const res = await fetch(
+    'https://www.youtube.com/results?hl=es&search_query=' + encodeURIComponent(q),
+    {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36',
+        'Accept-Language': 'es-ES,es;q=0.9',
+        Cookie: 'CONSENT=YES+1; SOCS=CAI',
+      },
+    }
+  );
+  const html = await res.text();
+  const m = html.match(/var ytInitialData = (\{.*?\});<\/script>/s);
+  if (!m) throw new Error('No se pudo leer la búsqueda');
+  const results = findVideos(JSON.parse(m[1]), []);
+
+  searchCache.set(key, { time: Date.now(), results });
+  if (searchCache.size > 200) searchCache.delete(searchCache.keys().next().value);
+  return results;
+}
+
+app.get('/api/search', async (req, res) => {
+  const q = String(req.query.q || '').trim().slice(0, 100);
+  if (q.length < 2) return res.json([]);
+  try {
+    res.json(await searchYouTube(q));
+  } catch (err) {
+    console.error('Error buscando:', err.message);
+    res.status(502).json({ error: 'No se pudo buscar ahora mismo' });
+  }
+});
+
 // ---------- Conexiones ----------
 io.on('connection', (socket) => {
   const name = () => users.get(socket.id) || 'Alguien';
