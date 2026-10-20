@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>YouTube Compartido</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
 <style>
   :root {
     --bg: #0f0f0f; --panel: #1a1a1a; --panel2: #232323; --border: #2e2e2e;
@@ -22,7 +23,6 @@
 
   header { display: flex; align-items: center; gap: 12px; padding: 12px 20px; border-bottom: 1px solid var(--border); }
   .logo { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 18px; }
-  .logo span.dot { width: 28px; height: 20px; background: var(--accent); border-radius: 6px; display: grid; place-items: center; font-size: 10px; }
   .pill { margin-left: auto; background: var(--panel2); border-radius: 999px; padding: 5px 12px; font-size: 13px; color: var(--muted); }
   .pill b { color: var(--text); }
 
@@ -100,7 +100,7 @@
 </div>
 
 <header>
-  <div class="logo"><span class="dot">▶</span> YouTube Compartido</div>
+  <div class="logo"><img src="favicon.svg" alt="" width="36" height="36"> YouTube Compartido</div>
   <div class="pill">👥 <b id="userCount">0</b> conectados</div>
 </header>
 

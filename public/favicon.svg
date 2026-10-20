@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Óvalo celeste con borde azul (estilo Mercado Pago) -->
+  <ellipse cx="32" cy="32" rx="29.5" ry="21.5" fill="#33b5e9" stroke="#2c2f7a" stroke-width="3"/>
+  <path d="M4.5 32c6-5 15-7 27.5-7s21.5 2 27.5 7c-6 5-15 7-27.5 7S10.5 37 4.5 32z" fill="#6fd0f5"/>
+  <!-- Botón de play rojo (estilo YouTube) -->
+  <rect x="17" y="20" width="30" height="24" rx="8" fill="#e62117" stroke="#2c2f7a" stroke-width="2.5"/>
+  <path d="M28 26.5v11l9.5-5.5z" fill="#fff"/>
+</svg>
