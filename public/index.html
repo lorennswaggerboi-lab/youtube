@@ -245,7 +245,7 @@ document.head.append(tag);
 
 window.onYouTubeIframeAPIReady = () => {
   player = new YT.Player('player', {
-    playerVars: { controls: 0, disablekb: 1, modestbranding: 1, rel: 0, playsinline: 1, iv_load_policy: 3, cc_load_policy: 0 },
+    playerVars: { controls: 0, disablekb: 1, modestbranding: 1, rel: 0, playsinline: 1, iv_load_policy: 3, cc_load_policy: 0, origin: location.origin },
     events: {
       onReady: () => {
         playerReady = true;
@@ -259,8 +259,8 @@ window.onYouTubeIframeAPIReady = () => {
       },
       // YouTube carga los subtítulos por su cuenta; aquí los quitamos o ponemos según la preferencia
       onApiChange: applySubs,
-      onError: () => {
-        if (S && S.current && loadedItemId === S.current.id) socket.emit('videoError', S.current.id);
+      onError: (e) => {
+        if (S && S.current && loadedItemId === S.current.id) socket.emit('videoError', { itemId: S.current.id, code: e.data });
       },
     },
   });
