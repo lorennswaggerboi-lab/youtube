@@ -97,11 +97,13 @@ function parseVideoId(input) {
   return null;
 }
 
+// oEmbed responde 401/403 cuando el dueño no deja insertar el video en otras webs
 async function fetchInfo(videoId) {
   try {
     const res = await fetch(
       `https://www.youtube.com/oembed?format=json&url=https://www.youtube.com/watch?v=${videoId}`
     );
+    if (res.status === 401 || res.status === 403) return { blocked: true };
     if (!res.ok) return null;
     const data = await res.json();
     return { title: data.title, author: data.author_name };
@@ -191,6 +193,9 @@ io.on('connection', (socket) => {
     if (!videoId) return socket.emit('toast', 'Ese enlace no parece un video de YouTube');
 
     const info = await fetchInfo(videoId);
+    if (info?.blocked) {
+      return socket.emit('toast', 'El dueño de ese video no deja verlo fuera de YouTube');
+    }
     const item = {
       id: nextId++,
       videoId,
@@ -238,9 +243,20 @@ io.on('connection', (socket) => {
     if (state.current && state.current.id === itemId) next();
   });
 
-  socket.on('videoError', (itemId) => {
+  // Códigos de error del reproductor de YouTube
+  const errorReasons = {
+    2: 'el enlace no es válido',
+    5: 'el reproductor falló',
+    100: 'no existe o es privado',
+    101: 'el dueño no deja verlo fuera de YouTube',
+    150: 'el dueño no deja verlo fuera de YouTube',
+    153: 'YouTube rechazó el reproductor',
+  };
+
+  socket.on('videoError', ({ itemId, code } = {}) => {
     if (state.current && state.current.id === itemId) {
-      system(`«${state.current.title}» no se puede reproducir aquí, saltando…`);
+      const reason = errorReasons[code] || 'no se puede reproducir aquí';
+      system(`«${state.current.title}»: ${reason}, saltando…`);
       next();
     }
   });
